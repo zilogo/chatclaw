@@ -56,7 +56,12 @@ export async function connectGatewayWs(opts: WsRpcOptions): Promise<{
       reject(new Error("Connection timeout"));
     }, timeout);
 
-    const ws = new WebSocket(wsUrl);
+    // Add Origin header for Node.js WebSocket client (required for OpenClaw CORS check)
+    const ws = new WebSocket(wsUrl, {
+      headers: {
+        'Origin': 'http://localhost:3000'
+      }
+    } as any);
     const pending = new Map<string, { resolve: (f: WsFrame) => void; reject: (e: Error) => void }>();
 
     ws.onerror = () => {

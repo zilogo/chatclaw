@@ -83,13 +83,45 @@ export class RuntimeClient implements RuntimeProvider {
 
       // Build message content - use multi-part format if attachments exist
       const imageAttachments = attachments?.filter(a => a.type === "image" && a.url) || [];
+      const fileAttachments = attachments?.filter(a => a.type === "file" && a.url) || [];
+
+      // Process text files (txt, md) - read content and append to message
+      let enhancedMessage = message;
+      for (const file of fileAttachments) {
+        // Only process text files (txt, md)
+        const isTextFile = file.mimeType === "text/plain" ||
+                          file.mimeType === "text/markdown" ||
+                          file.name.endsWith(".txt") ||
+                          file.name.endsWith(".md");
+
+        if (isTextFile && file.url) {
+          try {
+            // Read file content from data URL
+            let fileContent = "";
+            if (file.url.startsWith("data:")) {
+              // Extract base64 content from data URL
+              const base64Match = file.url.match(/^data:[^;]+;base64,(.+)$/);
+              if (base64Match) {
+                fileContent = atob(base64Match[1]);
+              }
+            }
+
+            if (fileContent) {
+              enhancedMessage += `\n\n--- File: ${file.name} ---\n${fileContent}\n--- End of ${file.name} ---`;
+            }
+          } catch (e) {
+            console.error(`Failed to read file ${file.name}:`, e);
+          }
+        }
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let messageContent: string | Array<any>;
       if (imageAttachments.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parts: Array<any> = [];
-        if (message) {
-          parts.push({ type: "text", text: message });
+        if (enhancedMessage) {
+          parts.push({ type: "text", text: enhancedMessage });
         }
         for (const att of imageAttachments) {
           // Use OpenAI image_url format - works with both data URLs and regular URLs
@@ -97,7 +129,7 @@ export class RuntimeClient implements RuntimeProvider {
         }
         messageContent = parts;
       } else {
-        messageContent = message;
+        messageContent = enhancedMessage;
       }
 
       const res = await fetch("/api/chat", {
