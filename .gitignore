@@ -44,6 +44,7 @@ yarn-error.log*
 next-env.d.ts
 REQUIREMENTS.md
 
+
 # SQLite data directory
 /data
 tmpclaude-*-cwd
